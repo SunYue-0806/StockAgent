@@ -1,6 +1,7 @@
 """HelloAgents统一LLM接口 - 基于OpenAI原生API"""
 
 import os
+import sys
 from typing import Literal, Optional, Iterator, List, Dict, Any
 from openai import OpenAI
 
@@ -35,37 +36,61 @@ class LLMClient:
             "stream": True,
         }
 
-        # 仅在有工具时才传入 tools，GLM 等模型可能不支持 tool_choice 参数
         if tools:
             params["tools"] = tools
             params["tool_choice"] = 'auto'
 
         try:
-            params["stream"] = False
-            response = self.client.chat.completions.create(**params)
+            full_content = ""
+            tool_call_dict: Dict[int, Dict[str, Any]] = {}
+            response_stream = self.client.chat.completions.create(**params)
+
+            for chunk in response_stream:
+                if not chunk.choices:
+                    continue
+
+                delta = chunk.choices[0].delta
+
+                reasoning = getattr(delta, "reasoning_content", None) or getattr(delta, "reasoning", None)
+                if reasoning:
+                    print(f"\033[90m{reasoning}\033[0m", end="", flush=True)
+
+                if delta.content:
+                    print(delta.content, end="", flush=True)
+                    full_content += delta.content
+
+                if delta.tool_calls:
+                    for tool_call_delta in delta.tool_calls:
+                        index = tool_call_delta.index
+                        if index not in tool_call_dict:
+                            tool_call_dict[index] = {
+                                "id": tool_call_delta.id or "",
+                                "type": "function",
+                                "function": {"name": "", "arguments": ""}
+                            }
+
+                        target_tool = tool_call_dict[index]
+
+                        if tool_call_delta.function.name:
+                            target_tool["function"]["name"] += tool_call_delta.function.name
+                            print(f"\n⚡ [决策] 决定调用工具: \033[94m{target_tool['function']['name']}\033[0m")
+                        if tool_call_delta.function.arguments:
+                            target_tool["function"]["arguments"] += tool_call_delta.function.arguments
+                            sys.stdout.write(".")
+                            sys.stdout.flush()
 
             print("✅ 大语言模型响应成功:")
-            choice = response.choices[0]
-            message = choice.message
-
-            full_content = message.content or ""
-            if full_content:
-                print(full_content)
 
             result_message = {"role": "assistant"}
 
             if full_content:
                 result_message["content"] = full_content
 
-            if message.tool_calls:
+            if tool_call_dict:
                 result_message["tool_calls"] = [
-                    {
-                        "id": tc.id,
-                        "type": "function",
-                        "function": {"name": tc.function.name, "arguments": tc.function.arguments}
-                    }
-                    for tc in message.tool_calls
+                    tool_call_dict[i] for i in sorted(tool_call_dict.keys())
                 ]
+
             return result_message
         except Exception as e:
             print(f"❌ 调用LLM API时发生错误: {e}")
