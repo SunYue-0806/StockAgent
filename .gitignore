@@ -1,0 +1,16 @@
+# 环境变量
+.env
+
+# IDE
+.idea/
+
+# uv 虚拟环境
+.venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
