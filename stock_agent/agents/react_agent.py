@@ -6,32 +6,6 @@ from stock_agent.prompt.prompt_utils import load_system_prompt
 from stock_agent.tools.tools import get_all_tools_schema, execute_tool
 
 
-def _parse_tool_call_from_text(content: str) -> list:
-    """从模型文本回复中解析 tool_call JSON 块，返回 tool_calls 列表。"""
-    import re
-    tool_calls = []
-
-    # 匹配 ```tool_call ... ``` 代码块
-    pattern = r'```tool_call\s*\n(.*?)```'
-    matches = re.findall(pattern, content, re.DOTALL)
-
-    for i, match in enumerate(matches):
-        try:
-            parsed = json.loads(match.strip())
-            tool_calls.append({
-                "id": f"call_{i}",
-                "type": "function",
-                "function": {
-                    "name": parsed["name"],
-                    "arguments": json.dumps(parsed.get("arguments", {}), ensure_ascii=False)
-                }
-            })
-        except (json.JSONDecodeError, KeyError):
-            continue
-
-    return tool_calls
-
-
 class ReActAgent:
     def __init__(self, client: OpenAIModelClient):
         self.client = client
@@ -101,3 +75,7 @@ class ReActAgent:
                 }
 
                 step_messages.append(observation_message)
+
+        self.messages = step_messages
+
+        yield {"type": "agent_finish", "status": "success"}

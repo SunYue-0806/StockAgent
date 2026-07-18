@@ -6,8 +6,6 @@ from typing import Literal, Optional, Iterator, List, Dict, Any, AsyncGenerator
 from openai import AsyncOpenAI
 
 from stock_agent.core.exceptions import SocketAgentsException
-from stock_agent.schema.message_chunk import AssistantMessageChunk
-from stock_agent.schema.tool_call import ToolCall
 
 
 class OpenAIModelClient:
