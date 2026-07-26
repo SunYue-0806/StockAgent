@@ -5,7 +5,10 @@ import sys
 from typing import Literal, Optional, Iterator, List, Dict, Any, AsyncGenerator
 from openai import AsyncOpenAI
 
-from stock_agent.core.exceptions import SocketAgentsException
+from agent_lab.core.exceptions import SocketAgentsException
+from agent_lab.core.logger import get_logger
+
+logger = get_logger("OpenAIClient")
 
 
 class OpenAIModelClient:
@@ -39,7 +42,7 @@ class OpenAIModelClient:
     async def invoke(
             self, messages: List[Dict[str, str]], tools: Optional[List[Dict[str, str]]] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
-        print(f"🧠 正在调用 {self.model} 模型...")
+        logger.info(f"正在调用 {self.model} 模型...")
 
         params = await self._build_request_params(messages, tools)
         try:
@@ -81,7 +84,7 @@ class OpenAIModelClient:
 
 
         except Exception as e:
-            print(f"❌ 调用LLM API时发生错误: {e}")
+            logger.error(f"调用LLM API时发生错误: {e}")
             raise SocketAgentsException(f"LLM调用失败: {str(e)}")
 
     @staticmethod

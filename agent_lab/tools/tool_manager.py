@@ -2,6 +2,10 @@ import inspect
 import json
 from typing import Dict, Any, Callable, List
 
+from agent_lab.core.logger import get_logger
+
+logger = get_logger("ToolManager")
+
 _GLOBAL_TOOLS_MAP: Dict[str, Callable] = {}
 _GLOBAL_TOOLS_SCHEMA: List[Dict[str, Any]] = []
 
@@ -55,7 +59,7 @@ def tool(func: Callable):
     _GLOBAL_TOOLS_MAP[func_name] = func
     _GLOBAL_TOOLS_SCHEMA.append(schema)
 
-    print(f"📦 [全局工具注册] 成功加载工具: {func_name}")
+    logger.info(f"成功加载工具: {func_name}")
     return func
 
 

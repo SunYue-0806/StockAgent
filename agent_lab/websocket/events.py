@@ -1,4 +1,4 @@
-# stock_agent/protocol/events.py
+# agent_lab/protocol/events.py
 from enum import Enum
 from typing import Dict, Any, Union
 

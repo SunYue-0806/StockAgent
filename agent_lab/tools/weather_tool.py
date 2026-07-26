@@ -1,9 +1,8 @@
 """tools/weather_tool.py - 心知天气工具实现"""
-
+import json
 import os
 import requests
-
-from stock_agent.tools.tools import tool
+from agent_lab.tools.tool_manager import tool
 
 XIN_ZHI_WEATHER_API_KEY = os.getenv("XIN_ZHI_WEATHER_API_KEY", "你的心知天气私钥")
 
