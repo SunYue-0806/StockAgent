@@ -1,5 +1,5 @@
 class MessageBuffer:
-    def __int__(self, history_messages: list | None = None):
+    def __init__(self, history_messages: list | None = None):
         self._messages: list = list(history_messages or [])
         self._history_size = len(self._messages)
 
