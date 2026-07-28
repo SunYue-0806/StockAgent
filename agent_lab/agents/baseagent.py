@@ -6,7 +6,7 @@ from agent_lab.llm.openai_model_client import OpenAIModelClient
 from agent_lab.core.message import Message
 
 
-class Agent(ABC):
+class BaseAgent(ABC):
     def __init__(
             self,
             llm_client: OpenAIModelClient,

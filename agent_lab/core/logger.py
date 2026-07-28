@@ -41,7 +41,7 @@ def _resolve_log_dir() -> Path:
 
     # 尝试定位项目根（main.py 所在目录的上一级 / agent_lab 的父级）
     candidates = [
-        Path(__file__).resolve().parent.parent.parent,  # agent_lab/core/logger.py → 项目根
+        Path(__file__).resolve().parent.parent.parent,  # agent_lab/schema/logger.py → 项目根
         Path.cwd(),
     ]
     for c in candidates:
@@ -65,7 +65,7 @@ class Logger:
 
     用法::
 
-        from agent_lab.core.logger import logger
+        from agent_lab.schema.logger import logger
 
         logger.info("模型初始化完成")
         logger.debug(f"请求参数: {params}")

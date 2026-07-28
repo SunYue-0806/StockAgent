@@ -7,6 +7,7 @@ from openai import AsyncOpenAI
 
 from agent_lab.core.exceptions import SocketAgentsException
 from agent_lab.core.logger import get_logger
+from agent_lab.llm.schema.message import AssistantMessage
 
 logger = get_logger("OpenAIClient")
 
@@ -71,17 +72,16 @@ class OpenAIModelClient:
                         if tool_name:
                             yield {"type": "tool_decide", "name": tool_name}
 
-            result_message = {"role": "assistant"}
+            assistant_message = AssistantMessage()
             if full_content:
-                result_message["content"] = full_content
+                assistant_message.content = full_content
             if tool_call_dict:
-                result_message["tool_calls"] = [tool_call_dict[i] for i in sorted(tool_call_dict.keys())]
+                assistant_message.tool_calls = [tool_call_dict[i] for i in sorted(tool_call_dict.keys())]
 
             if not full_content and not tool_call_dict:
                 raise SocketAgentsException("LLM 流异常结束，未生成任何有效内容或工具调用")
 
-            yield {"type": "final_result", "message": result_message}
-
+            yield {"type": "final_result", "message": assistant_message}
 
         except Exception as e:
             logger.error(f"调用LLM API时发生错误: {e}")

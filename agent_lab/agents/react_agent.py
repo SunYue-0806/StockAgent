@@ -1,9 +1,10 @@
 import ast
 import json
-from typing import AsyncGenerator, Dict, Any
+from typing import AsyncGenerator, Dict, Any, List
 
 from agent_lab.core.logger import get_logger
 from agent_lab.llm.openai_model_client import OpenAIModelClient
+from agent_lab.llm.schema.message import UserMessage, BaseMessage
 from agent_lab.prompt.prompt_utils import load_system_prompt
 from agent_lab.tools.tool_manager import get_all_tools_schema, execute_tool
 
@@ -13,9 +14,9 @@ logger = get_logger("ReActAgent")
 class ReActAgent:
     def __init__(self, client: OpenAIModelClient):
         self.client = client
-        self.messages = []
         self.max_steps = 5
         self.system_prompt = load_system_prompt()
+        self.message_list: List[BaseMessage] = []
         self.messages = [
             {"role": "system", "content": self.system_prompt}
         ]
@@ -42,7 +43,7 @@ class ReActAgent:
         ])
 
     async def _force_text_response(
-        self, step_messages: list, hint: str
+            self, step_messages: list, hint: str
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """注入提示消息，不带工具调用模型，强制其产出文字回答。"""
         logger.warning(hint)
@@ -62,7 +63,8 @@ class ReActAgent:
                 }
 
     async def run(self, user_message: str) -> AsyncGenerator[Dict[str, Any], None]:
-        self.messages.append({"role": "user", "content": user_message})
+
+        self.message_list.append(UserMessage(content=user_message))
         step_messages = list(self.messages)
         current_step = 0
         consecutive_failures = 0
@@ -91,7 +93,6 @@ class ReActAgent:
 
             step_messages.append(assistant_message)
 
-            # 模型主动给出文字回答（无 tool_calls）→ 正常结束
             if "tool_calls" not in assistant_message or not assistant_message["tool_calls"]:
                 yield {
                     "type": "agent_finish",
@@ -104,7 +105,6 @@ class ReActAgent:
             yield {"type": "status_update",
                    "content": f"Detected {len(assistant_message['tool_calls'])} tool request(s). Executing..."}
 
-            # 执行工具，统计本步失败数
             step_failures = 0
             for tool_call in assistant_message["tool_calls"]:
                 tool_name = tool_call["function"]["name"]
@@ -143,10 +143,10 @@ class ReActAgent:
             # 连续 3 轮全部失败 → 强制模型给出文字回答
             if consecutive_failures >= 3:
                 async for event in self._force_text_response(
-                    step_messages,
-                    "你已连续多轮工具调用全部失败。请停止调用工具，"
-                    "基于目前已获取的信息，直接给出你的最佳回答。"
-                    "如果信息严重不足，请向用户说明哪些信息缺失以及原因。"
+                        step_messages,
+                        "你已连续多轮工具调用全部失败。请停止调用工具，"
+                        "基于目前已获取的信息，直接给出你的最佳回答。"
+                        "如果信息严重不足，请向用户说明哪些信息缺失以及原因。"
                 ):
                     yield event
                 self.messages = step_messages
@@ -154,9 +154,9 @@ class ReActAgent:
 
         # max_steps 耗尽 → 强制模型基于已有信息给出回答
         async for event in self._force_text_response(
-            step_messages,
-            "已达到最大操作步数限制。请基于目前已获取的信息，"
-            "直接给出你的最佳回答，不要再调用工具。"
+                step_messages,
+                "已达到最大操作步数限制。请基于目前已获取的信息，"
+                "直接给出你的最佳回答，不要再调用工具。"
         ):
             yield event
 
