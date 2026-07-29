@@ -2,7 +2,7 @@ from typing import Union, List, Optional, Any, Dict
 
 from pydantic import BaseModel, Field, model_validator
 
-from agent_lab.tools.schema.tool_call import ToolCall
+from agent_lab.llm.schema.tool_call import ToolCall
 
 
 class UsageMetadata(BaseModel):

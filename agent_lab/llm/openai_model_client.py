@@ -1,14 +1,13 @@
 """HelloAgents统一LLM接口 - 基于OpenAI原生API"""
 
 import os
-import sys
-from typing import Literal, Optional, Iterator, List, Dict, Any, AsyncGenerator
+from typing import Optional, List, Dict, Any, AsyncGenerator
 from openai import AsyncOpenAI
 
 from agent_lab.core.exceptions import SocketAgentsException
 from agent_lab.core.logger import get_logger
 from agent_lab.llm.schema.message import AssistantMessage, BaseMessage, ToolMessage
-from agent_lab.tools.schema.tool_call import ToolCall
+from agent_lab.llm.schema.tool_call import ToolCall
 
 logger = get_logger("OpenAIClient")
 

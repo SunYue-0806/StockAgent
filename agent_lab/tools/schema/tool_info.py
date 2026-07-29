@@ -1,0 +1,9 @@
+from typing import Dict, Any, Type, Union
+from pydantic import BaseModel, Field
+
+
+class ToolInfo(BaseModel):
+    type: str = Field(default="function")
+    name: str = Field(default="")
+    description: str = Field(default="")
+    parameters: Union[Dict[str, Any], Type[BaseModel]] = Field(default_factory=dict)
