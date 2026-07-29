@@ -41,27 +41,20 @@ class SystemMessage(BaseMessage):
 class ToolMessage(BaseMessage):
     role: str = "tool"
     tool_call_id: str
+    tool_name: Optional[str] = None
 
 
 class AssistantMessage(BaseMessage):
     role: str = "assistant"
     tool_calls: Optional[List[ToolCall]] = None
     usage_metadata: Optional[UsageMetadata] = None
-    finish_reason: str = "null"
+    finish_reason: Optional[str] = None
     parser_content: Optional[Any] = None
     reasoning_content: Optional[str] = None
 
     @model_validator(mode='before')
     @classmethod
     def _parse_openai_tool_calls(cls, data: Any) -> Any:
-        """Convert OpenAI API format tool_calls to flat ToolCall format.
-
-        OpenAI API format has nested 'function' object:
-        {"id": "xxx", "type": "function", "function": {"name": "...", "arguments": "..."}}
-
-        ToolCall model expects flat format:
-        {"id": "xxx", "type": "function", "name": "...", "arguments": "..."}
-        """
         if isinstance(data, dict) and 'tool_calls' in data and data['tool_calls']:
             converted_tool_calls = []
             for tc in data['tool_calls']:
@@ -101,7 +94,7 @@ class AssistantMessage(BaseMessage):
                 })
             result["tool_calls"] = tool_calls
         if self.usage_metadata is not None:
-            result["usage_metadata"] = self.usage_metadata.to_openai_dict(**kwargs)
+            result["usage_metadata"] = self.usage_metadata.model_dump(**kwargs)
         if self.finish_reason is not None:
             result["finish_reason"] = self.finish_reason
         if self.parser_content is not None:

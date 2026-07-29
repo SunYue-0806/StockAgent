@@ -7,12 +7,13 @@ from openai import AsyncOpenAI
 
 from agent_lab.core.exceptions import SocketAgentsException
 from agent_lab.core.logger import get_logger
-from agent_lab.llm.schema.message import AssistantMessage
+from agent_lab.llm.schema.message import AssistantMessage, BaseMessage, ToolMessage
+from agent_lab.tools.schema.tool_call import ToolCall
 
 logger = get_logger("OpenAIClient")
 
 
-class OpenAIModelClient:
+class OpenAIModelClient():
 
     def __init__(self, model: str = None, api_key: str = None, base_url: str = None, timeout: int = None):
         self.model = model or os.getenv("LLM_MODEL_ID")
@@ -25,12 +26,36 @@ class OpenAIModelClient:
 
         self.client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
 
-    async def _build_request_params(self, messages: List[Dict[str, str]],
+    async def _build_request_params(self, messages: List[BaseMessage],
                                     tools: Optional[List[Dict[str, str]]] = None) -> Dict:
+
+        message_list = []
+        for msg in messages:
+            msg_dict = {"role": msg.role, "content": msg.content}
+            if isinstance(msg, AssistantMessage) and msg.tool_calls:
+                tool_calls_list = []
+                for tool_call in msg.tool_calls:
+                    tool_calls_list.append({
+                        "id": tool_call.id,
+                        "type": tool_call.type,
+                        "function": {
+                            "name": tool_call.name,
+                            "arguments": tool_call.arguments
+                        }
+                    })
+                msg_dict["tool_calls"] = tool_calls_list
+
+                if msg.reasoning_content:
+                    msg_dict["reasoning_content"] = msg.reasoning_content
+
+            if isinstance(msg, ToolMessage):
+                msg_dict["tool_call_id"] = msg.tool_call_id
+
+            message_list.append(msg_dict)
 
         params = {
             "model": self.model,
-            "messages": messages,
+            "messages": message_list,
             "stream": True,
         }
 
@@ -41,7 +66,7 @@ class OpenAIModelClient:
         return params
 
     async def invoke(
-            self, messages: List[Dict[str, str]], tools: Optional[List[Dict[str, str]]] = None
+            self, messages: List[BaseMessage], tools: Optional[List[Dict[str, str]]] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         logger.info(f"正在调用 {self.model} 模型...")
 
@@ -67,14 +92,25 @@ class OpenAIModelClient:
 
                 if delta.tool_calls:
                     for tool_call_delta in delta.tool_calls:
-                        tool_name = self._parse_tool_call_stream(tool_call_delta, tool_call_dict)
+                        index = tool_call_delta.index
 
-                        if tool_name:
-                            yield {"type": "tool_decide", "name": tool_name}
+                        if index not in tool_call_dict:
+                            tool_call_dict[index] = ToolCall(id=tool_call_delta.id, type="function", name="",
+                                                             arguments="")
+
+                        target_tool = tool_call_dict[index]
+
+                        if tool_call_delta.function.name:
+                            target_tool.name += tool_call_delta.function.name
+
+                        if tool_call_delta.function.arguments:
+                            target_tool.arguments += tool_call_delta.function.arguments
 
             assistant_message = AssistantMessage()
+
             if full_content:
                 assistant_message.content = full_content
+
             if tool_call_dict:
                 assistant_message.tool_calls = [tool_call_dict[i] for i in sorted(tool_call_dict.keys())]
 
@@ -86,47 +122,3 @@ class OpenAIModelClient:
         except Exception as e:
             logger.error(f"调用LLM API时发生错误: {e}")
             raise SocketAgentsException(f"LLM调用失败: {str(e)}")
-
-    @staticmethod
-    def _parse_tool_call_stream(tool_call_delta: Any, tool_call_dict: Dict[int, Dict[str, Any]]):
-        index = tool_call_delta.index
-
-        if index not in tool_call_dict:
-            tool_call_dict[index] = {
-                "id": tool_call_delta.id or "",
-                "type": "function",
-                "function": {"name": "", "arguments": ""}
-            }
-
-        target_tool = tool_call_dict[index]
-
-        tool_name = None
-
-        if tool_call_delta.function.name:
-            target_tool["function"]["name"] += tool_call_delta.function.name
-            tool_name = target_tool["function"]["name"]
-
-        if tool_call_delta.function.arguments:
-            target_tool["function"]["arguments"] += tool_call_delta.function.arguments
-
-        return tool_name
-
-    @staticmethod
-    def _format_messages(messages: List[Dict[str, Any]]) -> str:
-        """将消息列表格式化为可读字符串，供调试/日志使用。"""
-        lines = []
-        for i, msg in enumerate(messages):
-            role = msg.get("role", "unknown")
-            content = str(msg.get("content", ""))
-            if role == "system":
-                lines.append(f"[{i}] system: {content}")
-            elif role == "user":
-                lines.append(f"[{i}] user: {content}")
-            elif role == "assistant":
-                suffix = ""
-                if "tool_calls" in msg:
-                    suffix = f" | tool_calls: {len(msg['tool_calls'])}个"
-                lines.append(f"[{i}] assistant: {content[:200]}{suffix}")
-            elif role == "tool":
-                lines.append(f"[{i}] tool ({msg.get('name', '?')}): {content[:200]}")
-        return "\n".join(lines)

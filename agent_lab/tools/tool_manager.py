@@ -73,6 +73,8 @@ def execute_tool(name: str, arguments_str: str) -> str:
     安全执行全局池子中的工具。
     接收大模型传回的工具名和 JSON 参数字符串，返回执行结果字符串。
     """
+    logger.info(f"[Tool Call Start] name={name}, args={arguments_str}")
+
     if name not in _GLOBAL_TOOLS_MAP:
         return f"错误：全局工具箱中未找到名为 '{name}' 的工具。"
 
