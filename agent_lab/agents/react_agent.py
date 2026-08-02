@@ -1,6 +1,6 @@
 import ast
 import json
-from typing import AsyncGenerator, Dict, Any, List, Optional
+from typing import AsyncGenerator, Dict, Any, List, Optional, TYPE_CHECKING
 
 from agent_lab.core.logger import get_logger
 from agent_lab.llm.openai_model_client import OpenAIModelClient
@@ -8,15 +8,37 @@ from agent_lab.llm.schema.message import UserMessage, BaseMessage, SystemMessage
 from agent_lab.prompt.prompt_utils import load_system_prompt
 from agent_lab.tools.tool_manager import get_all_tools_schema, execute_tool
 
+if TYPE_CHECKING:
+    from agent_lab.session.store import SessionStore
+
 logger = get_logger("ReActAgent")
 
 
 class ReActAgent:
-    def __init__(self, client: OpenAIModelClient):
+    def __init__(
+        self,
+        client: OpenAIModelClient,
+        session_id: Optional[str] = None,
+        session_store: Optional["SessionStore"] = None,
+    ):
         self.client = client
         self.max_steps = 500
         self.system_prompt = load_system_prompt()
+        self.session_id = session_id
+        self.session_store = session_store
+
         self.messages: List[BaseMessage] = [SystemMessage(content=self.system_prompt)]
+
+        self._saved_count: int = 0
+
+        if session_id and session_store:
+            loaded = session_store.load(session_id)
+            if loaded:
+                self.messages = loaded
+                self._saved_count = len(loaded)
+                logger.info(f"从会话 {session_id[:8]}... 恢复了 {len(loaded)} 条消息")
+            else:
+                logger.info(f"会话 {session_id[:8]}... 无历史消息，创建新会话")
 
     async def run(self, user_message: str) -> AsyncGenerator[Dict[str, Any], None]:
 
@@ -76,3 +98,10 @@ class ReActAgent:
                 step_messages.append(tool_message)
 
         self.messages = step_messages
+
+        if self.session_id and self.session_store:
+            new_msgs = self.messages[self._saved_count:]
+            if new_msgs:
+                self.session_store.append(self.session_id, new_msgs)
+                self._saved_count = len(self.messages)
+                logger.debug(f"增量追加 {len(new_msgs)} 条消息 (总计 {self._saved_count})")
