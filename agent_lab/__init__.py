@@ -52,7 +52,7 @@ from agent_lab.core.exceptions import (
     ToolException,
 )
 from agent_lab.core.llm_config import LLMConfig
-from agent_lab.core.logger import Logger, configure, get_logger, logger
+from agent_lab.core.logger import configure, get_logger, logger
 
 __all__ = [
     # Agent
@@ -88,7 +88,6 @@ __all__ = [
     # 配置
     "LLMConfig",
     # 日志
-    "Logger",
     "logger",
     "get_logger",
     "configure",

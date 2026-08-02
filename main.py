@@ -1,7 +1,9 @@
 import asyncio
 
 from agent_lab.agents.react_agent import ReActAgent
-from agent_lab.core.logger import logger
+import logging
+
+logger = logging.getLogger(__name__)
 from agent_lab.llm.openai_model_client import OpenAIModelClient
 from agent_lab.session import SessionStore
 from agent_lab.tools import weather_tool  # noqa: F401

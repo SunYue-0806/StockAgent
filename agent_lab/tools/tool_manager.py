@@ -2,9 +2,9 @@ import inspect
 import json
 from typing import Dict, Any, Callable, List
 
-from agent_lab.core.logger import get_logger
+import logging
 
-logger = get_logger("ToolManager")
+logger = logging.getLogger(__name__)
 
 _GLOBAL_TOOLS_MAP: Dict[str, Callable] = {}
 _GLOBAL_TOOLS_SCHEMA: List[Dict[str, Any]] = []

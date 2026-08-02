@@ -20,7 +20,8 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from agent_lab.core.logger import get_logger
+import logging
+
 from agent_lab.llm.schema.message import (
     AssistantMessage,
     BaseMessage,
@@ -29,7 +30,7 @@ from agent_lab.llm.schema.message import (
     UserMessage,
 )
 
-logger = get_logger("SessionStore")
+logger = logging.getLogger(__name__)
 
 # ── role → 消息子类映射 ───────────────────────────────────────────
 

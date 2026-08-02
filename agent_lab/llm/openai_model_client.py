@@ -5,11 +5,12 @@ from typing import Optional, List, Dict, Any, AsyncGenerator
 from openai import AsyncOpenAI
 
 from agent_lab.core.exceptions import SocketAgentsException
-from agent_lab.core.logger import get_logger
+import logging
+
 from agent_lab.llm.schema.message import AssistantMessage, BaseMessage, ToolMessage
 from agent_lab.llm.schema.tool_call import ToolCall
 
-logger = get_logger("OpenAIClient")
+logger = logging.getLogger(__name__)
 
 
 class OpenAIModelClient():

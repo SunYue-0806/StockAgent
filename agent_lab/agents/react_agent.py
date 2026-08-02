@@ -1,8 +1,8 @@
-import ast
-import json
+import logging
 from typing import AsyncGenerator, Dict, Any, List, Optional, TYPE_CHECKING
 
-from agent_lab.core.logger import get_logger
+from agent_lab.context.context_manager import ContextManager
+from agent_lab.core.token_counter import TokenCounter
 from agent_lab.llm.openai_model_client import OpenAIModelClient
 from agent_lab.llm.schema.message import UserMessage, BaseMessage, SystemMessage, ToolMessage, AssistantMessage
 from agent_lab.prompt.prompt_utils import load_system_prompt
@@ -11,23 +11,33 @@ from agent_lab.tools.tool_manager import get_all_tools_schema, execute_tool
 if TYPE_CHECKING:
     from agent_lab.session.store import SessionStore
 
-logger = get_logger("ReActAgent")
+logger = logging.getLogger(__name__)
 
 
 class ReActAgent:
     def __init__(
-        self,
-        client: OpenAIModelClient,
-        session_id: Optional[str] = None,
-        session_store: Optional["SessionStore"] = None,
+            self,
+            client: OpenAIModelClient,
+            session_id: Optional[str] = None,
+            session_store: Optional["SessionStore"] = None,
+            max_context_tokens: int = 32000,
+            max_response_tokens: int = 4000,
     ):
         self.client = client
         self.max_steps = 500
         self.system_prompt = load_system_prompt()
         self.session_id = session_id
         self.session_store = session_store
-
+        self.max_context_tokens = max_context_tokens
+        self.max_response_tokens = max_response_tokens
         self.messages: List[BaseMessage] = [SystemMessage(content=self.system_prompt)]
+        self.token_counter = TokenCounter(model_name=client.model)
+        self.context_manager = ContextManager(
+            token_counter=self.token_counter,
+            system_prompt=self.system_prompt,
+            max_context_tokens=max_context_tokens,
+            max_response_tokens=max_response_tokens
+        )
 
         self._saved_count: int = 0
 
@@ -54,7 +64,9 @@ class ReActAgent:
 
             assistant_message: Optional[AssistantMessage] = None
 
-            async for event in self.client.invoke(step_messages, tools=tools_schema):
+            llm_input_messages = self.context_manager.build_sliding_window_messages(step_messages, tools_schema)
+
+            async for event in self.client.invoke(llm_input_messages, tools=tools_schema):
                 if event["type"] == "reasoning":
                     yield {"type": "reasoning", "content": event["content"]}
                 elif event["type"] == "content":
