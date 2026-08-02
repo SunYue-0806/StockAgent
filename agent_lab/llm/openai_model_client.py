@@ -94,10 +94,13 @@ class OpenAIModelClient():
                         index = tool_call_delta.index
 
                         if index not in tool_call_dict:
-                            tool_call_dict[index] = ToolCall(id=tool_call_delta.id, type="function", name="",
+                            tool_call_dict[index] = ToolCall(id="", type="function", name="",
                                                              arguments="")
 
                         target_tool = tool_call_dict[index]
+
+                        if tool_call_delta.id:
+                            target_tool.id = tool_call_delta.id
 
                         if tool_call_delta.function.name:
                             target_tool.name += tool_call_delta.function.name
