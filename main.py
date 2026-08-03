@@ -6,8 +6,6 @@ import logging
 logger = logging.getLogger(__name__)
 from agent_lab.llm.openai_model_client import OpenAIModelClient
 from agent_lab.session import SessionStore
-from agent_lab.tools import weather_tool  # noqa: F401
-from agent_lab.tools.builtin import file_tool  # noqa: F401
 
 
 def _print_session_list(store: SessionStore) -> None:

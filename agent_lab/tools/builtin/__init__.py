@@ -4,4 +4,5 @@
 """
 
 from agent_lab.tools.builtin import file_tool
+from agent_lab.tools.builtin import shell_tool
 from agent_lab.tools.builtin import memory_tool
