@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from datetime import datetime, timezone
@@ -129,10 +130,10 @@ class SessionStore:
 
     # ── 增量追加（高频，O(K)） ─────────────────────────────────────
 
-    def append(self, session_id: str, new_messages: list[BaseMessage]) -> None:
-        """增量追加新消息到 JSONL 文件末尾。
+    async def append(self, session_id: str, new_messages: list[BaseMessage]) -> None:
+        """异步增量追加新消息到 JSONL 文件末尾。
 
-        仅写入新增的消息，不触碰已有内容，时间复杂度 O(K)。
+        文件 I/O 通过 ``asyncio.to_thread`` 在线程池中执行，不阻塞事件循环。
 
         Args:
             session_id: 会话 ID。
@@ -141,19 +142,22 @@ class SessionStore:
         if not new_messages:
             return
 
-        path = self._path(session_id)
-        if not path.exists():
-            path.write_text("", encoding="utf-8")
+        def _write() -> None:
+            path = self._path(session_id)
+            if not path.exists():
+                path.write_text("", encoding="utf-8")
 
-        lines = [
-            json.dumps(msg.dict(exclude_none=True), ensure_ascii=False)
-            for msg in new_messages
-        ]
+            lines = [
+                json.dumps(msg.dict(exclude_none=True), ensure_ascii=False)
+                for msg in new_messages
+            ]
 
-        with open(path, "a", encoding="utf-8") as f:
-            f.write("\n".join(lines) + "\n")
+            with open(path, "a", encoding="utf-8") as f:
+                f.write("\n".join(lines) + "\n")
 
-        logger.debug(
+        await asyncio.to_thread(_write)
+
+        logger.info(
             f"追加会话 {session_id[:8]}... — +{len(new_messages)} 条消息"
         )
 
@@ -168,7 +172,7 @@ class SessionStore:
         self._path(session_id).write_text(
             self._serialize(messages), encoding="utf-8"
         )
-        logger.debug(f"保存会话 {session_id[:8]}... — {len(messages)} 条消息")
+        logger.info(f"保存会话 {session_id[:8]}... — {len(messages)} 条消息")
 
     def compact(self, session_id: str, messages: list[BaseMessage]) -> None:
         """压缩：用摘要替换旧消息后全量覆写。

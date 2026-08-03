@@ -39,20 +39,21 @@ class ReActAgent:
             max_response_tokens=max_response_tokens
         )
 
-        self._saved_count: int = 0
-
         if session_id and session_store:
             loaded = session_store.load(session_id)
             if loaded:
                 self.messages = loaded
-                self._saved_count = len(loaded)
                 logger.info(f"从会话 {session_id[:8]}... 恢复了 {len(loaded)} 条消息")
             else:
                 logger.info(f"会话 {session_id[:8]}... 无历史消息，创建新会话")
 
     async def run(self, user_message: str) -> AsyncGenerator[Dict[str, Any], None]:
 
-        self.messages.append(UserMessage(content=user_message))
+        user_msg = UserMessage(content=user_message)
+        self.messages.append(user_msg)
+        if self.session_id and self.session_store:
+            await self.session_store.append(self.session_id, [user_msg])
+
         step_messages = list(self.messages)
         current_step = 0
 
@@ -71,9 +72,6 @@ class ReActAgent:
                     yield {"type": "reasoning", "content": event["content"]}
                 elif event["type"] == "content":
                     yield {"type": "content", "content": event["content"]}
-                elif event["type"] == "tool_decide":
-                    yield {"type": "status_update",
-                           "content": f"🎯 智能体决策：准备激活本地工具 -> {event['name']}"}
                 elif event["type"] == "final_result":
                     assistant_message = event["message"]
 
@@ -81,6 +79,9 @@ class ReActAgent:
                 break
 
             step_messages.append(assistant_message)
+            self.messages.append(assistant_message)
+            if self.session_id and self.session_store:
+                await self.session_store.append(self.session_id, [assistant_message])
 
             if not getattr(assistant_message, "tool_calls", None):
                 yield {
@@ -108,12 +109,6 @@ class ReActAgent:
                 tool_message = ToolMessage(tool_call_id=tool_id, tool_name=tool_name, content=str(tool_result))
 
                 step_messages.append(tool_message)
-
-        self.messages = step_messages
-
-        if self.session_id and self.session_store:
-            new_msgs = self.messages[self._saved_count:]
-            if new_msgs:
-                self.session_store.append(self.session_id, new_msgs)
-                self._saved_count = len(self.messages)
-                logger.debug(f"增量追加 {len(new_msgs)} 条消息 (总计 {self._saved_count})")
+                self.messages.append(tool_message)
+                if self.session_id and self.session_store:
+                    await self.session_store.append(self.session_id, [tool_message])

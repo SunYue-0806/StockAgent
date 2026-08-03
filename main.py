@@ -91,7 +91,7 @@ async def main():
                 elif event_type == "agent_finish":
                     logger.info("[结束] 本轮对话执行完毕。")
 
-            print()  # 换行
+            print()
 
     except KeyboardInterrupt:
         print("\n👋 已中断。会话已自动保存。")
